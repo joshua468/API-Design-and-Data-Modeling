@@ -1,0 +1,282 @@
+// ============================================================================
+// schema.prisma
+// Full Prisma data model for the Marketplace Order Management System.
+// ============================================================================
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  buyer
+  seller
+  admin
+
+  @@map("user_role")
+}
+
+enum SellerStatus {
+  pending
+  active
+  suspended
+  closed
+
+  @@map("seller_status")
+}
+
+enum ProductStatus {
+  draft
+  active
+  archived
+
+  @@map("product_status")
+}
+
+enum StockPolicy {
+  tracked
+  unlimited
+
+  @@map("stock_policy")
+}
+
+enum OrderStatus {
+  pending
+  accepted
+  paid
+  shipped
+  completed
+  rejected
+  cancelled
+  refunded
+
+  @@map("order_status")
+}
+
+enum ActorRole {
+  buyer
+  seller
+  system
+  admin
+
+  @@map("actor_role")
+}
+
+enum PaymentState {
+  pending
+  succeeded
+  failed
+  refunded
+
+  @@map("payment_state")
+}
+
+model Currency {
+  code      String   @id @db.Char(3)
+  exponent  Int      @db.SmallInt
+  name      String
+  symbol    String
+
+  sellerProfiles SellerProfile[]
+  products       Product[]
+  orders         Order[]
+  payments       Payment[]
+
+  @@map("currencies")
+}
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String    @unique
+  fullName     String    @map("full_name")
+  role         UserRole  @default(buyer)
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  sellerProfile SellerProfile?
+  buyerOrders   Order[]        @relation("BuyerOrders")
+  reviews       Review[]       @relation("AuthorReviews")
+
+  @@map("users")
+}
+
+model SellerProfile {
+  userId          String       @id @map("user_id") @db.Uuid
+  user            User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  shopName        String       @map("shop_name")
+  slug            String       @unique
+  description     String?
+  status          SellerStatus @default(pending)
+  payoutCurrency  String       @map("payout_currency") @db.Char(3)
+  currency        Currency     @relation(fields: [payoutCurrency], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  ratingAverageBp Int          @default(0) @map("rating_average_bp")
+  ratingCount     Int          @default(0) @map("rating_count")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  products Product[]
+  orders   Order[]   @relation("SellerOrders")
+  reviews  Review[]  @relation("SubjectSellerReviews")
+
+  @@map("seller_profiles")
+}
+
+model Product {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sellerId      String        @map("seller_id") @db.Uuid
+  seller        SellerProfile @relation(fields: [sellerId], references: [userId], onDelete: Restrict, onUpdate: Restrict)
+  name          String
+  slug          String        @unique
+  description   String?
+  priceMinor    BigInt        @map("price_minor")
+  currencyCode  String        @map("currency_code") @db.Char(3)
+  currency      Currency      @relation(fields: [currencyCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  taxRateBp     Int           @default(0) @map("tax_rate_bp") @db.SmallInt
+  status        ProductStatus @default(draft)
+  stockPolicy   StockPolicy   @default(tracked) @map("stock_policy")
+  stockQuantity Int?          @map("stock_quantity")
+  category      String
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  orderItems OrderItem[]
+
+  @@index([priceMinor, id], map: "products_active_browse_idx")
+  @@index([category, priceMinor, id], map: "products_category_browse_idx")
+  @@index([sellerId, createdAt(sort: Desc)], map: "products_seller_active_idx")
+  @@map("products")
+}
+
+model Order {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publicCode          String      @unique @map("public_code") @db.VarChar(12)
+  buyerId             String      @map("buyer_id") @db.Uuid
+  buyer               User        @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sellerId            String      @map("seller_id") @db.Uuid
+  seller              SellerProfile @relation("SellerOrders", fields: [sellerId], references: [userId], onDelete: Restrict, onUpdate: Restrict)
+  status              OrderStatus @default(pending)
+  currencyCode        String      @map("currency_code") @db.Char(3)
+  currency            Currency    @relation(fields: [currencyCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  subtotalMinor       BigInt      @map("subtotal_minor")
+  taxMinor            BigInt      @map("tax_minor")
+  shippingMinor       BigInt      @default(0) @map("shipping_minor")
+  totalMinor          BigInt      @map("total_minor")
+  shippingName        String      @map("shipping_name")
+  shippingLine1       String      @map("shipping_line1")
+  shippingLine2       String?     @map("shipping_line2")
+  shippingCity        String      @map("shipping_city")
+  shippingRegion      String?     @map("shipping_region")
+  shippingPostalCode  String?     @map("shipping_postal_code")
+  shippingCountryCode String      @map("shipping_country_code") @db.Char(2)
+  idempotencyKey      String      @map("idempotency_key") @db.VarChar(128)
+  placedAt            DateTime    @default(now()) @map("placed_at") @db.Timestamptz(6)
+  acceptedAt          DateTime?   @map("accepted_at") @db.Timestamptz(6)
+  paidAt              DateTime?   @map("paid_at") @db.Timestamptz(6)
+  shippedAt           DateTime?   @map("shipped_at") @db.Timestamptz(6)
+  completedAt         DateTime?   @map("completed_at") @db.Timestamptz(6)
+  rejectedAt          DateTime?   @map("rejected_at") @db.Timestamptz(6)
+  cancelledAt         DateTime?   @map("cancelled_at") @db.Timestamptz(6)
+  refundedAt          DateTime?   @map("refunded_at") @db.Timestamptz(6)
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items    OrderItem[]
+  payments Payment[]
+  reviews  Review[]
+
+  @@unique([buyerId, idempotencyKey], map: "orders_buyer_idempotency_key")
+  @@index([buyerId, createdAt(sort: Desc)], map: "orders_buyer_recent_idx")
+  @@index([sellerId, placedAt, id], map: "orders_seller_queue_idx")
+  @@index([sellerId, placedAt(sort: Desc), id(sort: Desc)], map: "orders_seller_active_idx")
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId        String   @map("order_id") @db.Uuid
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  productId      String   @map("product_id") @db.Uuid
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  nameSnapshot   String   @map("name_snapshot")
+  unitPriceMinor BigInt   @map("unit_price_minor")
+  taxRateBp      Int      @map("tax_rate_bp") @db.SmallInt
+  quantity       Int
+  lineTotalMinor BigInt   @map("line_total_minor")
+  lineTaxMinor   BigInt   @map("line_tax_minor")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([orderId, productId], map: "order_items_one_line_per_product")
+  @@index([orderId], map: "order_items_order_idx")
+  @@index([productId], map: "order_items_product_idx")
+  @@map("order_items")
+}
+
+model Payment {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId           String       @map("order_id") @db.Uuid
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  amountMinor       BigInt       @map("amount_minor")
+  currencyCode      String       @map("currency_code") @db.Char(3)
+  currency          Currency     @relation(fields: [currencyCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  state             PaymentState @default(pending)
+  provider          String
+  providerReference String?      @map("provider_reference")
+  failureCode       String?      @map("failure_code")
+  failureReason     String?      @map("failure_reason")
+  idempotencyKey    String       @map("idempotency_key") @db.VarChar(128)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  succeededAt       DateTime?    @map("succeeded_at") @db.Timestamptz(6)
+  failedAt          DateTime?    @map("failed_at") @db.Timestamptz(6)
+  refundedAt        DateTime?    @map("refunded_at") @db.Timestamptz(6)
+
+  @@unique([orderId, idempotencyKey], map: "payments_order_idempotency_key")
+  @@index([orderId, createdAt(sort: Desc)], map: "payments_order_history_idx")
+  @@map("payments")
+}
+
+model Review {
+  id                             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId                        String        @map("order_id") @db.Uuid
+  order                          Order         @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  authorId                       String        @map("author_id") @db.Uuid
+  author                         User          @relation("AuthorReviews", fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  subjectSellerId                String        @map("subject_seller_id") @db.Uuid
+  subjectSeller                  SellerProfile @relation("SubjectSellerReviews", fields: [subjectSellerId], references: [userId], onDelete: Restrict, onUpdate: Restrict)
+  rating                         Int           @db.SmallInt
+  body                           String?
+  subjectRatingAverageBpSnapshot Int?          @map("subject_rating_average_bp_snapshot")
+  subjectRatingCountSnapshot     Int?          @map("subject_rating_count_snapshot")
+  deletedAt                      DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  deletedReason                  String?       @map("deleted_reason")
+  createdAt                      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([orderId, authorId], map: "reviews_one_per_order_per_author")
+  @@index([subjectSellerId, createdAt(sort: Desc)], map: "reviews_seller_live_idx")
+  @@index([authorId, createdAt(sort: Desc)], map: "reviews_author_idx")
+  @@map("reviews")
+}
+
+model OrderStatusTransition {
+  fromStatus     OrderStatus @map("from_status")
+  toStatus       OrderStatus @map("to_status")
+  actor          ActorRole
+  requiresRefund Boolean     @default(false) @map("requires_refund")
+  rationale      String
+
+  @@id([fromStatus, toStatus, actor])
+  @@map("order_status_transitions")
+}
+
+model OrderTerminalState {
+  status    OrderStatus @id
+  rationale String
+
+  @@map("order_terminal_states")
+}
