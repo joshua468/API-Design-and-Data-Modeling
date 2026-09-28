@@ -19,32 +19,33 @@ import { PrismaClient } from '@prisma/client';
 import { env } from '@/server/env';
 import type { QueryResult, RunQuery, SqlParam, Tx } from './client';
 
-function adapter(): PrismaPg {
-  if (env.databaseUrl === '') {
-    throw new Error(
-      'DATABASE_URL must be set to construct the Prisma data layer.'
-    );
-  }
-  return new PrismaPg({ connectionString: env.databaseUrl });
-}
-
 declare global {
   // Module-level state that must survive Next.js hot reload.
   var __marketplacePrisma: PrismaClient | undefined;
 }
 
-export const prisma: PrismaClient =
-  globalThis.__marketplacePrisma ??
-  new PrismaClient({
-    adapter: adapter(),
-    log:
-      process.env.NODE_ENV === 'development'
-        ? ['warn', 'error']
-        : ['error'],
-  });
+let prismaInstance: PrismaClient | undefined;
 
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__marketplacePrisma = prisma;
+function getPrisma(): PrismaClient {
+  if (prismaInstance !== undefined) return prismaInstance;
+  if (env.databaseUrl === '') {
+    throw new Error(
+      'DATABASE_URL must be set to construct the Prisma data layer.'
+    );
+  }
+  prismaInstance =
+    globalThis.__marketplacePrisma ??
+    new PrismaClient({
+      adapter: new PrismaPg({ connectionString: env.databaseUrl }),
+      log:
+        process.env.NODE_ENV === 'development'
+          ? ['warn', 'error']
+          : ['error'],
+    });
+  if (process.env.NODE_ENV !== 'production') {
+    globalThis.__marketplacePrisma = prismaInstance;
+  }
+  return prismaInstance;
 }
 
 /**
@@ -167,7 +168,7 @@ export async function networkQuery<T = Record<string, unknown>>(
   params: SqlParam[] = []
 ): Promise<QueryResult<T>> {
   try {
-    const rows = await prisma.$queryRawUnsafe<T[]>(sql, ...sanitize(params));
+    const rows = await getPrisma().$queryRawUnsafe<T[]>(sql, ...sanitize(params));
     return {
       rows: toRows<T>(rows),
       affectedRows: Array.isArray(rows) ? rows.length : 0,
@@ -189,7 +190,7 @@ export async function networkTransaction<T>(
   fn: (tx: Tx) => Promise<T>
 ): Promise<T> {
   try {
-    return await prisma.$transaction(
+    return await getPrisma().$transaction(
       async (tx) => {
         const run: RunQuery = async <R = Record<string, unknown>>(
           sql: string,

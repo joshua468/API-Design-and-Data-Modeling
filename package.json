@@ -7,8 +7,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "next dev -p 4321",
-    "build": "next build",
+    "dev": "prisma generate && next dev -p 4321",
+    "build": "prisma generate && next build",
     "start": "next start -p 4321",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

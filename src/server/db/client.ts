@@ -124,8 +124,28 @@ async function getHandle(): Promise<PGlite> {
   globalCache.__marketplacePglite = handle;
 
   handle.opening = (async () => {
-    handle.db = new PGlite(resolve(process.cwd(), env.dataDir));
-    await handle.db.waitReady;
+    try {
+      handle.db = new PGlite(resolve(/*turbopackIgnore: true*/ process.cwd(), env.dataDir));
+      await handle.db.waitReady;
+      // Serverless deployments start cold with an empty data directory. Apply
+      // migrations and seed the demo dataset in-process so the first request is
+      // already a usable marketplace. Skipped under vitest, which stays hermetic.
+      if (process.env.NODE_ENV !== 'test') {
+        const { ensureBootstrapped } = await import('./bootstrap');
+        await ensureBootstrapped(handle.db);
+      }
+    } catch {
+      // A disk-backed PGlite can fail inside read-only serverless sandboxes
+      // (the wasm postgres aborts before throwing a real Error). Fall back to
+      // an in-memory database so a cold start always serves the demo dataset.
+      if (handle.db) await handle.db.close().catch(() => undefined);
+      handle.db = new PGlite();
+      await handle.db.waitReady;
+      if (process.env.NODE_ENV !== 'test') {
+        const { ensureBootstrapped } = await import('./bootstrap');
+        await ensureBootstrapped(handle.db);
+      }
+    }
     return handle;
   })();
 

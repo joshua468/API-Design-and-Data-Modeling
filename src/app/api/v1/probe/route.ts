@@ -24,14 +24,16 @@ export async function GET(): Promise<Response> {
       ? (await networkQuery<{ server_version: string; migrated: number; products: number; orders: number }>(sql)).rows
       : (await query<{ server_version: string; migrated: number; products: number; orders: number }>(sql)).rows;
     const row = rows[0];
-    const url = new URL(env.databaseUrl);
 
     return json({
       status: 'ok',
       dataSource: source,
       connection:
         source === 'prisma-pg-adapter'
-          ? { host: url.hostname, port: Number(url.port), database: url.pathname.replace(/^\//, '') }
+          ? (() => {
+              const url = new URL(env.databaseUrl);
+              return { host: url.hostname, port: Number(url.port), database: url.pathname.replace(/^\//, '') };
+            })()
           : { engine: 'embedded pglite', dataDir: env.dataDir },
       engine: row?.server_version ?? 'unknown',
       passthrough: source === 'prisma-pg-adapter' ? 'db/client -> (query/transaction) -> prisma.ts networkQuery -> @prisma/adapter-pg -> postgres' : 'db/client -> pglite',

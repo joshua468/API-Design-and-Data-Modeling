@@ -24,7 +24,7 @@ function loadDotEnv(): void {
   // than add a dotenv dependency, parse the two conventional files ourselves.
   // They are read, never written, and never parsed into the client bundle.
   for (const name of ['.env.local', '.env']) {
-    const path = resolve(process.cwd(), name);
+    const path = resolve(/*turbopackIgnore: true*/ process.cwd(), name);
     if (!existsSync(path)) continue;
     for (const line of readFileSync(path, 'utf8').split('\n')) {
       const trimmed = line.trim();

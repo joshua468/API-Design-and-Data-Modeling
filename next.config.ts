@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
   // browser graph, which is the failure that otherwise shows up as a confusing
   // "Module not found: fs" at build time.
   serverExternalPackages: ['@electric-sql/pglite'],
+  // The cold-start bootstrap reads db/migrations/*.sql with readdirSync, which
+  // file tracing cannot follow statically. Ship the SQL files alongside the
+  // server code so the embedded database can self-seed on a fresh instance.
+  outputFileTracingIncludes: {
+    '/*': ['./db/migrations/*.sql'],
+  },
   typedRoutes: true,
 };
 

@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "functions": {
+    "app/page.tsx": { "maxDuration": 60 },
+    "app/api/v1/health/route.ts": { "maxDuration": 60 },
+    "app/api/v1/probe/route.ts": { "maxDuration": 60 },
+    "app/api/v1/products/route.ts": { "maxDuration": 60 },
+    "app/api/v1/orders/route.ts": { "maxDuration": 60 },
+    "app/api/v1/orders/[id]/transition/route.ts": { "maxDuration": 60 }
+  }
+}

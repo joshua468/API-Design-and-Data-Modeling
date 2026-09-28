@@ -25,9 +25,11 @@ Every requirement is implemented **and** backed by runnable evidence. The column
 | **Three scientific queries** (order history, queue, search) | §1.3 Actions 3 & 4; §4.1.3 | `db/queries/03_buyer_orders.sql`, `04_seller_orders.sql`; text search is the `search_document @@ plainto_tsquery` filter inside `01_browse_products.sql` (via `products_search_gin_idx`) |
 | Explain on the two heaviest queries to confirm indexes are used | §3.7, §5.2 | `npm run db:queries` Phase B **asserts** index use (no `enable_seqscan`); screenshots in `docs/evidence/plan-*.png` |
 | **Try three invalid inserts and show the database rejecting them** | §5.3 | Proofs 1, 18, 21 + screenshots `docs/evidence/violation-*.png`, full transcript `docs/evidence/constraint-proofs-transcript.txt` |
-| Responses structured (not naked rows) | §4.1 response envelopes | Envelope spec + live responses at `http://localhost:4321` |
+| Responses structured (not naked rows) | §4.1 response envelopes | Envelope spec + live responses at https://api-design-and-data-modeling.vercel.app (local: `http://localhost:4321`) |
 | **Model maps to API** (endpoints reference model entities 1:1) | §4.1 ↔ §2 | Each resource's paths reference the `products/sellers/orders/payments/reviews` relations by name |
 | Impossible states prevented at the database | §3.3 + §3.6 | Guard trigger + 8 tied CHECKs; Proofs 1–9 walk the whole machine |
+| Incremental commit history | Repository with 8 themed commits (scaffold → schema/migrations → proofs → data layer → API → UI → docs → deploy) | https://github.com/joshua468/API-Design-and-Data-Modeling |
+| Live deployment | Embedded PGlite, self-bootstrapping on cold start (no external database) | https://api-design-and-data-modeling.vercel.app |
 
 Run the evidence for yourself: `npm run db:seed` → `npm run db:proofs` (34/34) → `npm run db:queries` (2/2 plan assertions) → `npx vitest run` (58/58) → `next dev` and poke the live endpoints (§4.1 "implemented" markers).
 
