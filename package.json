@@ -1,0 +1,54 @@
+{
+  "name": "marketplace-order-management",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev -p 4321",
+    "build": "next build",
+    "start": "next start -p 4321",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node scripts/migrate.ts",
+    "db:seed": "node scripts/seed.ts",
+    "db:reset": "node scripts/reset.ts",
+    "db:queries": "node scripts/run-queries.ts",
+    "db:proofs": "node scripts/verify-constraints.ts",
+    "db:setup": "npm run db:reset && npm run db:migrate && npm run db:seed && npm run db:queries && npm run db:proofs",
+    "verify": "npm run typecheck && npm run lint && npm run db:setup && npm run test && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "next": "^16.3.6",
+    "pg": "^8.23.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.14",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.7.0",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "eslint": "^9.38.0",
+    "eslint-config-next": "^16.3.6",
+    "jsdom": "^27.0.0",
+    "prisma": "^7.10.0",
+    "tailwindcss": "^4.1.14",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

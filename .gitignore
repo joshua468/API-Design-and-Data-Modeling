@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+.pglite/
+.pglite-test/
+/evidence/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local log files
+*.log
+*.err.log
+
+# Local secrets. Only .env.example is committed; the real .env is not.
+.env
+.env.local
+.env*.local
+
+.DS_Store
+npm-debug.log*
